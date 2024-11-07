@@ -61,7 +61,7 @@ extract_tool_info() {
         fi
     done < "$report_file"
 
-    # Append results to dashboard
+    # Append results to dashboard in a single row
     echo "| $tool_name | $tool_version | $binary_exists | $functional_test | $ok_count | $changed_count | $skipped_count | $failed_count |" >> "$dashboard_file"
     debug_log "Appended $tool_name results to dashboard"
 }
