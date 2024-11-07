@@ -52,41 +52,35 @@ parse_test_line() {
     local failed_temp=0
     
     # Extract each value if present
-    if [[ "$line" =~ .*Tools\ version:([0-9]+\.[0-9]+\.[0-9]+).* ]]; then
-        version_temp="${BASH_REMATCH[1]}"
-        debug_log "Found version: $version_temp"
-    fi
-    
-    if [[ "$line" == *"Binary is present in the path"* ]]; then
-        binary_available_temp="Yes"
-    elif [[ "$line" == *"Binary is missing"* ]]; then
-        binary_available_temp="No"
-    fi
-    debug_log "Binary availability: $binary_available_temp"
-    
-    if [[ "$line" == *"Functional testing passed"* ]]; then
-        functional_test_temp="Passed"
-    elif [[ "$line" == *"Functional testing failed"* ]]; then
-        functional_test_temp="Failed"
-    fi
-    debug_log "Functional test result: $functional_test_temp"
-    
-    if [[ "$line" =~ .*ok=([0-9]+).* ]]; then
+    if [[ "$line" == *"[instance_git]"* ]]; then
+        if [[ "$line" == *"ToolVersion:"* ]]; then
+            if [[ "$line" =~ .*ToolVersion:([0-9]+\.[0-9]+\.[0-9]+).* ]]; then
+                version_temp="${BASH_REMATCH[1]}"
+                debug_log "Found version: $version_temp"
+            fi
+        elif [[ "$line" == *"Binary is present in the path"* ]]; then
+            binary_available_temp="Yes"
+            debug_log "Binary is present"
+        elif [[ "$line" == *"Binary is missing"* ]]; then
+            binary_available_temp="No"
+            debug_log "Binary is missing"
+        elif [[ "$line" == *"Functional testing passed"* ]]; then
+            functional_test_temp="Passed"
+            debug_log "Functional testing passed"
+        elif [[ "$line" == *"Functional testing failed"* ]]; then
+            functional_test_temp="Failed"
+            debug_log "Functional testing failed"
+        fi
+    elif [[ "$line" =~ .*ok=([0-9]+).* ]]; then
         ok_temp=${BASH_REMATCH[1]}
         debug_log "Found ok=$ok_temp"
-    fi
-    
-    if [[ "$line" =~ .*changed=([0-9]+).* ]]; then
+    elif [[ "$line" =~ .*changed=([0-9]+).* ]]; then
         changed_temp=${BASH_REMATCH[1]}
         debug_log "Found changed=$changed_temp"
-    fi
-    
-    if [[ "$line" =~ .*skipped=([0-9]+).* ]]; then
+    elif [[ "$line" =~ .*skipped=([0-9]+).* ]]; then
         skipped_temp=${BASH_REMATCH[1]}
         debug_log "Found skipped=$skipped_temp"
-    fi
-    
-    if [[ "$line" =~ .*failed=([0-9]+).* ]]; then
+    elif [[ "$line" =~ .*failed=([0-9]+).* ]]; then
         failed_temp=${BASH_REMATCH[1]}
         debug_log "Found failed=$failed_temp"
     fi
@@ -144,25 +138,7 @@ main() {
         local functional_test=""
         
         while IFS= read -r line || [[ -n "$line" ]]; do
-            if [[ "$line" == *"PLAY RECAP"* ]]; then
-                debug_log "Found PLAY RECAP marker"
-                
-                # Read next line safely
-                if ! read -r next_line; then
-                    debug_log "No more lines after PLAY RECAP"
-                    continue
-                fi
-                
-                # Skip empty lines
-                if [[ -z "$next_line" ]]; then
-                    debug_log "Empty line after PLAY RECAP"
-                    continue
-                fi
-                
-                debug_log "Processing recap line: $next_line"
-                parse_test_line "$next_line" tool_version binary_available functional_test ok_count changed_count skipped_count failed_count
-                debug_log "After parsing - version: $tool_version, binary: $binary_available, functional: $functional_test, ok: $ok_count, changed: $changed_count, skipped: $skipped_count, failed: $failed_count"
-            fi
+            parse_test_line "$line" tool_version binary_available functional_test ok_count changed_count skipped_count failed_count
         done < "$report"
 
         debug_log "Final counts for $tool_name - version: $tool_version, binary: $binary_available, functional: $functional_test, ok: $ok_count, changed: $changed_count, skipped: $skipped_count, failed: $failed_count"
@@ -174,7 +150,7 @@ main() {
         total_skipped=$(safe_add "$total_skipped" "$skipped_count")
         total_failed_count=$(safe_add "$total_failed_count" "$failed_count")
         
-        if ((failed_count == 0)); then
+        if [[ "$functional_test" == "Passed" ]]; then
             total_passed=$(safe_add "$total_passed" 1)
         else
             total_failed=$(safe_add "$total_failed" 1)
