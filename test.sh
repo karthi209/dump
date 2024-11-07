@@ -71,24 +71,35 @@ parse_test_line() {
             functional_test_temp="Failed"
             debug_log "Functional test: Failed"
         fi
-    elif [[ "$line" =~ ok=([0-9]+) ]]; then
+    fi
+
+    if [[ "$line" =~ ok=([0-9]+) ]]; then
         ok_temp=${BASH_REMATCH[1]}
         debug_log "Found ok=$ok_temp"
-    elif [[ "$line" =~ changed=([0-9]+) ]]; then
+    fi
+    if [[ "$line" =~ changed=([0-9]+) ]]; then
         changed_temp=${BASH_REMATCH[1]}
         debug_log "Found changed=$changed_temp"
-    elif [[ "$line" =~ skipped=([0-9]+) ]]; then
+    fi
+    if [[ "$line" =~ skipped=([0-9]+) ]]; then
         skipped_temp=${BASH_REMATCH[1]}
         debug_log "Found skipped=$skipped_temp"
-    elif [[ "$line" =~ failed=([0-9]+) ]]; then
+    fi
+    if [[ "$line" =~ failed=([0-9]+) ]]; then
         failed_temp=${BASH_REMATCH[1]}
         debug_log "Found failed=$failed_temp"
     fi
 
-    # Assign values to output variables
-    version_ref="$version_temp"
-    binary_available_ref="$binary_available_temp"
-    functional_test_ref="$functional_test_temp"
+    # Update references with values from the current line
+    if [ -n "$version_temp" ]; then
+        version_ref="$version_temp"
+    fi
+    if [ -n "$binary_available_temp" ]; then
+        binary_available_ref="$binary_available_temp"
+    fi
+    if [ -n "$functional_test_temp" ]; then
+        functional_test_ref="$functional_test_temp"
+    fi
     ok_ref=$(safe_add "$ok_ref" "$ok_temp")
     changed_ref=$(safe_add "$changed_ref" "$changed_temp")
     skipped_ref=$(safe_add "$skipped_ref" "$skipped_temp")
@@ -98,76 +109,52 @@ parse_test_line() {
     return 0
 }
 
-main() {
-    # Initialize dashboard
-    local dashboard_file="dashboard.md"
-    local report_pattern="molecule-test-*.txt"
-    local github_actions_summary="${GITHUB_STEP_SUMMARY:-}"
-    
-    init_dashboard "$dashboard_file"
-    
-    # Declare variables to track overall test results
-    declare -i total_tools=0
-    declare -i total_passed=0
-    declare -i total_failed=0
-    declare -i total_ok=0
-    declare -i total_changed=0
-    declare -i total_skipped=0
-    declare -i total_failed_count=0
-    
-    # Process each report file
-    for report in $report_pattern; do
-        [[ ! -f "$report" ]] && debug_log "No molecule test reports found" && break
-        
-        debug_log "Processing report: $report"
-        
-        local tool_name=$(sed 's/molecule-test-\(.*\)\.txt/\1/' <<< "$report")
-        debug_log "Processing tool: $tool_name"
-        
-        # Initialize individual test counts
-        declare -i ok_count=0
-        declare -i changed_count=0
-        declare -i skipped_count=0
-        declare -i failed_count=0
-        local tool_version=""
-        local binary_available=""
-        local functional_test=""
-        
-        while IFS= read -r line; do
-            parse_test_line "$line" tool_version binary_available functional_test ok_count changed_count skipped_count failed_count
-        done < "$report"
+# Function to finalize dashboard entry per tool
+write_dashboard_entry() {
+    local dashboard_file="$1"
+    local tool="$2"
+    local version="$3"
+    local binary_available="$4"
+    local functional_test="$5"
+    local ok="$6"
+    local changed="$7"
+    local skipped="$8"
+    local failed="$9"
 
-        debug_log "Final counts for $tool_name - version: $tool_version, binary: $binary_available, functional: $functional_test, ok: $ok_count, changed: $changed_count, skipped: $skipped_count, failed: $failed_count"
-
-        # Update totals
-        total_tools=$(safe_add "$total_tools" 1)
-        total_ok=$(safe_add "$total_ok" "$ok_count")
-        total_changed=$(safe_add "$total_changed" "$changed_count")
-        total_skipped=$(safe_add "$total_skipped" "$skipped_count")
-        total_failed_count=$(safe_add "$total_failed_count" "$failed_count")
-        
-        [[ "$functional_test" == "Passed" ]] && total_passed=$(safe_add "$total_passed" 1) || total_failed=$(safe_add "$total_failed" 1)
-
-        echo "| $tool_name | $tool_version | $binary_available | $functional_test | $ok_count | $changed_count | $skipped_count | $failed_count |" >> "$dashboard_file"
-    done
-
-    # Add totals and summary
-    {
-        echo "|------|---------|------------------|-----------------|-----|---------|---------|--------|"
-        echo "| **TOTALS** | - | - | - | **$total_ok** | **$total_changed** | **$total_skipped** | **$total_failed_count** |"
-        echo ""
-        echo "## Summary"
-        echo "| Metric | Count |"
-        echo "|--------|-------|"
-        echo "| Total Tools | $total_tools |"
-        echo "| Passed | $total_passed |"
-        echo "| Failed | $total_failed |"
-    } >> "$dashboard_file"
-
-    # Display and optionally update GitHub Actions summary
-    cat "$dashboard_file"
-    [[ -n "$github_actions_summary" ]] && cat "$dashboard_file" >> "$github_actions_summary"
-    debug_log "Script completed successfully"
+    debug_log "Writing entry to dashboard for tool: $tool"
+    echo "| $tool | ${version:-N/A} | ${binary_available:-N/A} | ${functional_test:-N/A} | $ok | $changed | $skipped | $failed |" >> "$dashboard_file"
 }
 
-main "$@"
+# Main function to process each report file
+process_report_file() {
+    local report_file="$1"
+    local dashboard_file="$2"
+    local tool_name="$3"
+
+    debug_log "Processing report file: $report_file for tool: $tool_name"
+
+    # Initialize counters and information variables
+    local version=""
+    local binary_available="N/A"
+    local functional_test="N/A"
+    local ok=0
+    local changed=0
+    local skipped=0
+    local failed=0
+
+    # Parse each line in the report file
+    while IFS= read -r line; do
+        parse_test_line "$line" version binary_available functional_test ok changed skipped failed
+    done < "$report_file"
+
+    # Write the accumulated results to the dashboard
+    write_dashboard_entry "$dashboard_file" "$tool_name" "$version" "$binary_available" "$functional_test" "$ok" "$changed" "$skipped" "$failed"
+    debug_log "Finished processing report file for tool: $tool_name"
+}
+
+# Example usage
+dashboard_file="dashboard.md"
+init_dashboard "$dashboard_file"
+process_report_file "molecule-test-allure_commandline.txt" "$dashboard_file" "Allure"
+
+echo "Dashboard created: $dashboard_file"
