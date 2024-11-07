@@ -40,9 +40,9 @@ parse_test_line() {
     local -n skipped_ref="$7"
     local -n failed_ref="$8"
     
-    debug_log "Starting to parse line: $line"
+    debug_log "Parsing line: $line"
     
-    # Initialize temporary variables
+    # Temporary variables for current line values
     local version_temp=""
     local binary_available_temp=""
     local functional_test_temp=""
@@ -50,41 +50,41 @@ parse_test_line() {
     local changed_temp=0
     local skipped_temp=0
     local failed_temp=0
-    
-    # Extract each value if present
+
+    # Match patterns based on log image provided
     if [[ "$line" == *"[instance_git]"* ]]; then
         if [[ "$line" == *"ToolVersion:"* ]]; then
-            if [[ "$line" =~ .*ToolVersion:([0-9]+\.[0-9]+\.[0-9]+).* ]]; then
+            if [[ "$line" =~ ToolVersion:([0-9]+\.[0-9]+\.[0-9]+) ]]; then
                 version_temp="${BASH_REMATCH[1]}"
                 debug_log "Found version: $version_temp"
             fi
-        elif [[ "$line" == *"Binary is present in the path"* ]]; then
+        elif [[ "$line" == *"Binary exists in the path"* ]]; then
             binary_available_temp="Yes"
-            debug_log "Binary is present"
+            debug_log "Binary available: Yes"
         elif [[ "$line" == *"Binary is missing"* ]]; then
             binary_available_temp="No"
-            debug_log "Binary is missing"
-        elif [[ "$line" == *"Functional testing passed"* ]]; then
+            debug_log "Binary available: No"
+        elif [[ "$line" == *"Functional test success"* ]]; then
             functional_test_temp="Passed"
-            debug_log "Functional testing passed"
-        elif [[ "$line" == *"Functional testing failed"* ]]; then
+            debug_log "Functional test: Passed"
+        elif [[ "$line" == *"Functional test failure"* ]]; then
             functional_test_temp="Failed"
-            debug_log "Functional testing failed"
+            debug_log "Functional test: Failed"
         fi
-    elif [[ "$line" =~ .*ok=([0-9]+).* ]]; then
+    elif [[ "$line" =~ ok=([0-9]+) ]]; then
         ok_temp=${BASH_REMATCH[1]}
         debug_log "Found ok=$ok_temp"
-    elif [[ "$line" =~ .*changed=([0-9]+).* ]]; then
+    elif [[ "$line" =~ changed=([0-9]+) ]]; then
         changed_temp=${BASH_REMATCH[1]}
         debug_log "Found changed=$changed_temp"
-    elif [[ "$line" =~ .*skipped=([0-9]+).* ]]; then
+    elif [[ "$line" =~ skipped=([0-9]+) ]]; then
         skipped_temp=${BASH_REMATCH[1]}
         debug_log "Found skipped=$skipped_temp"
-    elif [[ "$line" =~ .*failed=([0-9]+).* ]]; then
+    elif [[ "$line" =~ failed=([0-9]+) ]]; then
         failed_temp=${BASH_REMATCH[1]}
         debug_log "Found failed=$failed_temp"
     fi
-    
+
     # Assign values to output variables
     version_ref="$version_temp"
     binary_available_ref="$binary_available_temp"
@@ -99,12 +99,11 @@ parse_test_line() {
 }
 
 main() {
-    # Parse command-line arguments for configuration
+    # Initialize dashboard
     local dashboard_file="dashboard.md"
     local report_pattern="molecule-test-*.txt"
     local github_actions_summary="${GITHUB_STEP_SUMMARY:-}"
     
-    # Initialize dashboard
     init_dashboard "$dashboard_file"
     
     # Declare variables to track overall test results
@@ -118,17 +117,14 @@ main() {
     
     # Process each report file
     for report in $report_pattern; do
-        if [[ ! -f "$report" ]]; then
-            debug_log "No molecule test reports found"
-            break
-        fi
+        [[ ! -f "$report" ]] && debug_log "No molecule test reports found" && break
         
         debug_log "Processing report: $report"
         
-        local tool_name
-        tool_name=$(echo "$report" | sed 's/molecule-test-\(.*\)\.txt/\1/')
+        local tool_name=$(sed 's/molecule-test-\(.*\)\.txt/\1/' <<< "$report")
         debug_log "Processing tool: $tool_name"
         
+        # Initialize individual test counts
         declare -i ok_count=0
         declare -i changed_count=0
         declare -i skipped_count=0
@@ -137,33 +133,25 @@ main() {
         local binary_available=""
         local functional_test=""
         
-        while IFS= read -r line || [[ -n "$line" ]]; do
+        while IFS= read -r line; do
             parse_test_line "$line" tool_version binary_available functional_test ok_count changed_count skipped_count failed_count
         done < "$report"
 
         debug_log "Final counts for $tool_name - version: $tool_version, binary: $binary_available, functional: $functional_test, ok: $ok_count, changed: $changed_count, skipped: $skipped_count, failed: $failed_count"
 
-        # Update totals safely
+        # Update totals
         total_tools=$(safe_add "$total_tools" 1)
         total_ok=$(safe_add "$total_ok" "$ok_count")
         total_changed=$(safe_add "$total_changed" "$changed_count")
         total_skipped=$(safe_add "$total_skipped" "$skipped_count")
         total_failed_count=$(safe_add "$total_failed_count" "$failed_count")
         
-        if [[ "$functional_test" == "Passed" ]]; then
-            total_passed=$(safe_add "$total_passed" 1)
-        else
-            total_failed=$(safe_add "$total_failed" 1)
-        fi
+        [[ "$functional_test" == "Passed" ]] && total_passed=$(safe_add "$total_passed" 1) || total_failed=$(safe_add "$total_failed" 1)
 
-        debug_log "Writing results for $tool_name to dashboard"
         echo "| $tool_name | $tool_version | $binary_available | $functional_test | $ok_count | $changed_count | $skipped_count | $failed_count |" >> "$dashboard_file"
-        debug_log "Results written successfully"
     done
 
-    debug_log "All files processed. Adding final summary."
-
-    # Add separator and totals
+    # Add totals and summary
     {
         echo "|------|---------|------------------|-----------------|-----|---------|---------|--------|"
         echo "| **TOTALS** | - | - | - | **$total_ok** | **$total_changed** | **$total_skipped** | **$total_failed_count** |"
@@ -176,21 +164,9 @@ main() {
         echo "| Failed | $total_failed |"
     } >> "$dashboard_file"
 
-    debug_log "Dashboard file contents:"
-    cat "$dashboard_file" >&2
-
-    # Display dashboard
+    # Display and optionally update GitHub Actions summary
     cat "$dashboard_file"
-
-    # Update GitHub Actions summary if available
-    if [[ -n "$github_actions_summary" ]]; then
-        debug_log "Updating GitHub Actions summary"
-        {
-            echo "## Molecule Test Report Dashboard"
-            cat "$dashboard_file"
-        } >> "$github_actions_summary"
-    fi
-
+    [[ -n "$github_actions_summary" ]] && cat "$dashboard_file" >> "$github_actions_summary"
     debug_log "Script completed successfully"
 }
 
