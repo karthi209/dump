@@ -105,9 +105,15 @@ parse_test_line() {
 }
 
 main() {
-    debug_log "Script started"
+    # Parse command-line arguments for configuration
+    local dashboard_file="dashboard.md"
+    local report_pattern="molecule-test-*.txt"
+    local github_actions_summary="${GITHUB_STEP_SUMMARY:-}"
     
-    # Ensure we're working with integers
+    # Initialize dashboard
+    init_dashboard "$dashboard_file"
+    
+    # Declare variables to track overall test results
     declare -i total_tools=0
     declare -i total_passed=0
     declare -i total_failed=0
@@ -116,17 +122,8 @@ main() {
     declare -i total_skipped=0
     declare -i total_failed_count=0
     
-    local dashboard_file="dashboard.md"
-
-    # Initialize dashboard
-    init_dashboard "$dashboard_file"
-
-    # Debug: Show current directory and files
-    debug_log "Current directory contents:"
-    ls -la >&2
-
     # Process each report file
-    for report in molecule-test-*.txt; do
+    for report in $report_pattern; do
         if [[ ! -f "$report" ]]; then
             debug_log "No molecule test reports found"
             break
@@ -165,24 +162,6 @@ main() {
                 debug_log "Processing recap line: $next_line"
                 parse_test_line "$next_line" tool_version binary_available functional_test ok_count changed_count skipped_count failed_count
                 debug_log "After parsing - version: $tool_version, binary: $binary_available, functional: $functional_test, ok: $ok_count, changed: $changed_count, skipped: $skipped_count, failed: $failed_count"
-            elif [[ "$line" == *"Tools version:"* ]]; then
-                # Extract tool version
-                if [[ "$line" =~ .*Tools\ version:([0-9]+\.[0-9]+\.[0-9]+).* ]]; then
-                    tool_version="${BASH_REMATCH[1]}"
-                    debug_log "Found tool version: $tool_version"
-                fi
-            elif [[ "$line" == *"Binary is present in the path"* ]]; then
-                binary_available="Yes"
-                debug_log "Binary is present"
-            elif [[ "$line" == *"Binary is missing"* ]]; then
-                binary_available="No"
-                debug_log "Binary is missing"
-            elif [[ "$line" == *"Functional testing passed"* ]]; then
-                functional_test="Passed"
-                debug_log "Functional testing passed"
-            elif [[ "$line" == *"Functional testing failed"* ]]; then
-                functional_test="Failed"
-                debug_log "Functional testing failed"
             fi
         done < "$report"
 
@@ -228,12 +207,12 @@ main() {
     cat "$dashboard_file"
 
     # Update GitHub Actions summary if available
-    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    if [[ -n "$github_actions_summary" ]]; then
         debug_log "Updating GitHub Actions summary"
         {
             echo "## Molecule Test Report Dashboard"
             cat "$dashboard_file"
-        } >> "$GITHUB_STEP_SUMMARY"
+        } >> "$github_actions_summary"
     fi
 
     debug_log "Script completed successfully"
