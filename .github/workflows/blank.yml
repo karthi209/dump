@@ -1,10 +1,7 @@
 name: Generate Pie Chart Summary
 
 on: 
-  workflow_run:
-    workflows: ["Other Workflow"]
-    types: 
-      - completed
+  workflow_dispatch:
 
 jobs:
   generate_chart:
