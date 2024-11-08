@@ -1,4 +1,4 @@
-name: Generate Pie Chart Summary
+name: Generate Pie Chart in Summary
 
 on: 
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
 jobs:
   generate_chart:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -32,15 +33,13 @@ jobs:
           
           plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
           plt.title('GitHub Actions Workflow Summary')
-          plt.savefig('summary_chart.png')
+          plt.savefig('/tmp/summary_chart.png')
           " > chart.py
           python chart.py
 
-      - name: Upload Pie Chart Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: summary_chart
-          path: summary_chart.png
-
-      - name: Display Chart in Summary
-        run: echo "![Pie Chart](summary_chart.png)" >> $GITHUB_STEP_SUMMARY
+      - name: Convert Image to Base64 and Display in Summary
+        run: |
+          # Convert the image to base64
+          base64_img=$(base64 /tmp/summary_chart.png)
+          # Display it in the job summary
+          echo "![Pie Chart](data:image/png;base64,$base64_img)" >> $GITHUB_STEP_SUMMARY
