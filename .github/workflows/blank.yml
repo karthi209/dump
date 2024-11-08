@@ -1,0 +1,49 @@
+name: Generate Pie Chart Summary
+
+on: 
+  workflow_run:
+    workflows: ["Other Workflow"]
+    types: 
+      - completed
+
+jobs:
+  generate_chart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install matplotlib
+
+      - name: Generate Pie Chart
+        run: |
+          echo "
+import matplotlib.pyplot as plt
+
+# Example data for pie chart
+labels = ['Success', 'Failure', 'Skipped']
+sizes = [70, 20, 10]  # Replace with actual data
+colors = ['#4CAF50', '#FF5733', '#FFC300']
+
+plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
+plt.title('GitHub Actions Workflow Summary')
+plt.savefig('summary_chart.png')
+" > chart.py
+          python chart.py
+
+      - name: Upload Pie Chart Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: summary_chart
+          path: summary_chart.png
+
+      - name: Display Chart in Summary
+        run: echo "![Pie Chart](summary_chart.png)" >> $GITHUB_STEP_SUMMARY
