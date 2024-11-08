@@ -26,17 +26,17 @@ jobs:
       - name: Generate Pie Chart
         run: |
           echo "
-import matplotlib.pyplot as plt
-
-# Example data for pie chart
-labels = ['Success', 'Failure', 'Skipped']
-sizes = [70, 20, 10]  # Replace with actual data
-colors = ['#4CAF50', '#FF5733', '#FFC300']
-
-plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
-plt.title('GitHub Actions Workflow Summary')
-plt.savefig('summary_chart.png')
-" > chart.py
+          import matplotlib.pyplot as plt
+          
+          # Example data for pie chart
+          labels = ['Success', 'Failure', 'Skipped']
+          sizes = [70, 20, 10]  # Replace with actual data
+          colors = ['#4CAF50', '#FF5733', '#FFC300']
+          
+          plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
+          plt.title('GitHub Actions Workflow Summary')
+          plt.savefig('summary_chart.png')
+          " > chart.py
           python chart.py
 
       - name: Upload Pie Chart Artifact
