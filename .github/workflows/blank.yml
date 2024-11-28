@@ -1,45 +1,37 @@
-name: Generate Pie Chart in Summary
+name: Release
 
-on: 
-  workflow_dispatch:
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger for tags like v1.0.0
 
 jobs:
-  generate_chart:
-    runs-on: ubuntu-latest
+   create-release:
+    runs-on: self-hosted
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-          
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install matplotlib
-
-      - name: Generate Pie Chart
-        run: |
-          echo "
-          import matplotlib.pyplot as plt
-          
-          # Example data for pie chart
-          labels = ['Success', 'Failure', 'Skipped']
-          sizes = [70, 20, 10]  # Replace with actual data
-          colors = ['#4CAF50', '#FF5733', '#FFC300']
-          
-          plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
-          plt.title('GitHub Actions Workflow Summary')
-          plt.savefig('/tmp/summary_chart.png')
-          " > chart.py
-          python chart.py
-
-      - name: Convert Image to Base64 and Display in Summary
-        run: |
-          # Convert the image to base64
-          base64_img=$(base64 /tmp/summary_chart.png)
-          # Display it in the job summary
-          echo "![Pie Chart](data:image/png;base64,$base64_img)" >> $GITHUB_STEP_SUMMARY
+    - name: Generate Release Notes
+      id: notes
+      run: |
+        echo "## Release Notes" > release_notes.md
+        echo "- Image 1: myrepo/image1:${GITHUB_REF_NAME}" >> release_notes.md
+        echo "- Image 2: myrepo/image2:${GITHUB_REF_NAME}" >> release_notes.md
+        echo "- Image 3: myrepo/image3:${GITHUB_REF_NAME}" >> release_notes.md
+        echo "" >> release_notes.md
+        if [ -f release_notes_input.md ]; then
+          echo "Appending content from release_notes_input.md"
+          cat release_notes_input.md >> release_notes.md
+        else
+          echo "No additional release notes found."
+        fi
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
