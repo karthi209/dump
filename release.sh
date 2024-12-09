@@ -7,7 +7,7 @@ END_TAG="v1.1.0"    # Replace this with your ending tag
 # Extract all merged pull requests and format the release notes
 RELEASE_NOTES=""
 
-# Loop through merged commits between tags
+# Use git log and loop over each line directly
 while IFS= read -r commit_message; do
   # Extract the PR number
   if [[ $commit_message =~ Merge\ pull\ request\ \#([0-9]+).* ]]; then
@@ -20,11 +20,11 @@ while IFS= read -r commit_message; do
   description=$(echo "$commit_message" | sed -n '2p')
 
   # Extract author name
-  author=$(git log -1 --format='%an' HEAD)
+  author=$(git log -1 --format='%an')
 
   # Format the output string
   RELEASE_NOTES+="\n- $description by $author in pull request #$pr_number"
-done < <(git log ${START_TAG}..${END_TAG} --merges --pretty=format:"%B")
+done <<< "$(git log ${START_TAG}..${END_TAG} --merges --pretty=format:'%B')"
 
 # Output the notes
 echo -e "$RELEASE_NOTES"
