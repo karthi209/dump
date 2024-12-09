@@ -6,20 +6,22 @@ get_pr_info() {
     if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
         echo "Error: Not in a Git repository" >&2
         return 1
-    }
+    fi
 
     # Get the full commit message
     local commit_message=$(git log -1 --pretty=%B)
 
-    # Look for PR tags (common formats)
-    local pr_info=""
+    # Declare arrays for start and end patterns
     local start_patterns=("<pr-info>" "\[PR\]" "\[PULL REQUEST\]")
     local end_patterns=("</pr-info>" "\[/PR\]" "\[/PULL REQUEST\]")
 
+    # Initialize PR info variable
+    local pr_info=""
+
     # Try different tag formats
-    for i in "${!start_patterns[@]}"; do
-        start_tag="${start_patterns[$i]}"
-        end_tag="${end_patterns[$i]}"
+    for ((i=0; i<${#start_patterns[@]}; i++)); do
+        local start_tag="${start_patterns[$i]}"
+        local end_tag="${end_patterns[$i]}"
 
         # Extract content between tags using sed
         pr_info=$(echo "$commit_message" | sed -n "/$start_tag/,/$end_tag/p" | grep -v "$start_tag" | grep -v "$end_tag")
