@@ -2,6 +2,15 @@
 
 # Function to extract PR info from the latest commit
 get_pr_info() {
+    # Check if start and end tags are provided
+    if [ $# -ne 2 ]; then
+        echo "Usage: $0 <start_tag> <end_tag>" >&2
+        return 1
+    }
+
+    local start_tag="$1"
+    local end_tag="$2"
+
     # Ensure we're in a git repository
     if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
         echo "Error: Not in a Git repository" >&2
@@ -11,26 +20,8 @@ get_pr_info() {
     # Get the full commit message
     local commit_message=$(git log -1 --pretty=%B)
 
-    # Declare arrays for start and end patterns
-    local start_patterns=("<pr-info>" "\[PR\]" "\[PULL REQUEST\]")
-    local end_patterns=("</pr-info>" "\[/PR\]" "\[/PULL REQUEST\]")
-
-    # Initialize PR info variable
-    local pr_info=""
-
-    # Try different tag formats
-    for ((i=0; i<${#start_patterns[@]}; i++)); do
-        local start_tag="${start_patterns[$i]}"
-        local end_tag="${end_patterns[$i]}"
-
-        # Extract content between tags using sed
-        pr_info=$(echo "$commit_message" | sed -n "/$start_tag/,/$end_tag/p" | grep -v "$start_tag" | grep -v "$end_tag")
-
-        # If content found, break the loop
-        if [ -n "$pr_info" ]; then
-            break
-        fi
-    done
+    # Extract content between tags using sed
+    local pr_info=$(echo "$commit_message" | sed -n "/$start_tag/,/$end_tag/p" | grep -v "$start_tag" | grep -v "$end_tag")
 
     # If no PR info found, use the entire commit message
     if [ -z "$pr_info" ]; then
@@ -53,5 +44,5 @@ get_pr_info() {
     echo "$description"
 }
 
-# Run the function
-get_pr_info
+# Run the function with passed arguments
+get_pr_info "$@"
