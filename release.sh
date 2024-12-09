@@ -1,5 +1,3 @@
-gh pr list --state merged --json number,title,mergedAt,baseRef,targetRef --repo OWNER/REPO | jq -r '
-  .[] |
-  select(.mergedAt >= "'$(git show -s --format=%ci v1.0 | awk '{print $1}')" and .mergedAt <= "'$(git show -s --format=%ci v2.0 | awk '{print $1}')") |
-  "\(.number): \(.title) (merged on \(.mergedAt))"
-'
+for sha in $(git log v1.0..v2.0 --merges --pretty=format:"%H"); do
+  gh pr view --repo OWNER/REPO --json number,title,mergedAt --commit $sha | jq -r '"#\(.number): \(.title) (merged on \(.mergedAt))"'
+done
