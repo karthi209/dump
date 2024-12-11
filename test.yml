@@ -3,35 +3,67 @@
   become: yes
   gather_facts: no
   vars:
-    tool_name: "Ansible CLI"
-    tool_command: "ansible --version | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\\1/p'"
+    tool_groups:
+      CLI:
+        - name: "Ansible CLI"
+          command: "ansible --version | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\\1/p'"
+        - name: "Git"
+          command: "git --version | sed 's/git version //'"
+        - name: "Docker"
+          command: "docker --version | sed 's/.* version //; s/,//'"  # Adjusted to handle Docker output
+
+      Languages:
+        - name: "Node.js"
+          command: "node --version | sed 's/v//'"
+        - name: "Python3"
+          command: "python3 --version | sed 's/Python //'"
+        - name: "Go"
+          command: "go version | sed -n 's/go\([0-9]\+\.[0-9]\+\).*/\\1/p'"
+
+      Build_Tools:
+        - name: "Maven"
+          command: "mvn --version | sed -n 's/Apache Maven \([0-9]\+\.[0-9]\+\).*/\\1/p'"
+        - name: "Gradle"
+          command: "gradle --version | sed -n 's/Gradle \([0-9]\+\.[0-9]\+\).*/\\1/p'"
 
   tasks:
-    # Initialize a dictionary to store the result
+    # Initialize a dictionary to store the results
     - name: Initialize version tracking
       set_fact:
         version_results: {}
 
-    # Collect the tool version
-    - name: Collect tool version
-      shell: "{{ tool_command }}"
+    # Collect tool versions for each group
+    - name: Collect tool versions
+      shell: "{{ item.command }}"
       register: tool_version_output
       failed_when: false
       changed_when: false
+      loop: "{{ item }}"
+      loop_control:
+        loop_var: item
 
-    # Set the collected version into the results dictionary
-    - name: Set version result for the tool
+    # Set the collected versions into the results dictionary
+    - name: Set version result for each tool
       set_fact:
         version_results:
-          "{{ version_results | default({}) | combine({tool_name: {'name': tool_name, 'version': tool_version_output.stdout}}) }}"
+          "{{ version_results | default({}) | combine({group_name : (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.results[loop.index].stdout}]}) }}"
       when:
-        - tool_version_output.stdout is defined
+        - tool_version_output.results[loop.index].stdout is defined
+      loop: "{{ item }}"
+      loop_control:
+        loop_var: item
+      vars:
+        group_name: "{{ group_item.key }}"
 
-    # Display the collected tool version in a formatted way
-    - name: Display Tool Version
+    # Display the collected tool versions in a formatted way
+    - name: Display Tool Versions
       debug:
         msg: |
-          ========== TOOL VERSION ==========
-          Tool Name       : {{ version_results[tool_name].name }}
-          Tool Version    : {{ version_results[tool_name].version }}
+          ========== TOOL VERSIONS ==========
+          {% for group_name, tools in version_results.items() %}
+          {{ group_name | upper }}:
+          {% for tool in tools %}
+            {{ '%-20s : %s' | format(tool.name, tool.version) }}
+          {% endfor %}
+          {% endfor %}
           ============================
