@@ -4,7 +4,7 @@
   vars:
     tool_groups:
       configuration_management:
-        - { name: "Ansible CLI", command: "ansible --version", regex: 'ansible ([0-9.]+)' }
+        - { name: "Ansible CLI", command: "ansible --version | regex_search('ansible\\s\\[core\\s(\\d+\\.\\d+\\.\\d+)\\]')" }
         - { name: "Ansible Playbook", command: "ansible-playbook --version", regex: 'ansible-playbook ([0-9.]+)' }
 
       cloud_cli:
