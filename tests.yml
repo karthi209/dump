@@ -1,0 +1,80 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    tools_to_check:
+      - { name: "Java", command: "java -version", regex: 'version "([^"]+)"' }
+      - { name: "Python", command: "python3 --version", regex: 'Python ([0-9.]+)' }
+      - { name: "Node.js", command: "node --version", regex: 'v([0-9.]+)' }
+      - { name: "npm", command: "npm --version", regex: '([0-9.]+)' }
+      - { name: "Git", command: "git --version", regex: 'git version ([0-9.]+)' }
+      - { name: "Docker", command: "docker --version", regex: 'version ([0-9.]+)' }
+      - { name: "Docker Compose", command: "docker compose version", regex: 'v([0-9.]+)' }
+      - { name: "Ansible", command: "ansible --version", regex: 'ansible ([0-9.]+)' }
+      - { name: "Terraform", command: "terraform version", regex: 'v([0-9.]+)' }
+      - { name: "AWS CLI", command: "aws --version", regex: 'aws-cli/([0-9.]+)' }
+      - { name: "Kubernetes", command: "kubectl version --client", regex: 'Client Version: v([0-9.]+)' }
+      - { name: "Helm", command: "helm version", regex: 'version.BuildInfo{Version:"v([^"]+)"' }
+      - { name: "Maven", command: "mvn --version", regex: 'Apache Maven ([0-9.]+)' }
+      - { name: "Gradle", command: "gradle --version", regex: 'Gradle ([0-9.]+)' }
+      - { name: "Go", command: "go version", regex: 'go([0-9.]+)' }
+      - { name: "Ruby", command: "ruby --version", regex: 'ruby ([0-9.]+)' }
+      - { name: "PHP", command: "php --version", regex: 'PHP ([0-9.]+)' }
+      - { name: "Perl", command: "perl --version", regex: 'v([0-9.]+)' }
+      - { name: "MySQL Client", command: "mysql --version", regex: 'Distrib ([0-9.]+)' }
+      - { name: "PostgreSQL Client", command: "psql --version", regex: '([0-9.]+)' }
+      - { name: "MongoDB", command: "mongo --version", regex: 'MongoDB shell version v?([0-9.]+)' }
+      - { name: "Redis", command: "redis-cli --version", regex: 'redis-cli ([0-9.]+)' }
+      - { name: "Nginx", command: "nginx -v", regex: 'nginx/([0-9.]+)' }
+      - { name: "Apache", command: "httpd -v", regex: 'Apache/([0-9.]+)' }
+      - { name: "OpenSSL", command: "openssl version", regex: 'OpenSSL ([0-9.]+[a-z]?)' }
+      - { name: "Curl", command: "curl --version", regex: 'curl ([0-9.]+)' }
+      - { name: "Pip", command: "pip3 --version", regex: 'pip ([0-9.]+)' }
+      - { name: "Virtual Env", command: "virtualenv --version", regex: 'virtualenv ([0-9.]+)' }
+      - { name: "Vagrant", command: "vagrant --version", regex: 'Vagrant ([0-9.]+)' }
+      - { name: "VirtualBox", command: "vboxmanage --version", regex: '([0-9.]+)' }
+      - { name: "Make", command: "make --version", regex: 'GNU Make ([0-9.]+)' }
+      - { name: "GCC", command: "gcc --version", regex: 'gcc \(.*\) ([0-9.]+)' }
+      - { name: "Bash", command: "bash --version", regex: 'GNU bash, version ([0-9.]+)' }
+      - { name: "Tmux", command: "tmux -V", regex: 'tmux ([0-9.]+)' }
+
+  tasks:
+    - name: Check Tool Versions
+      block:
+        - name: Initialize version tracking
+          set_fact:
+            version_results: []
+
+        - name: Check versions for specified tools
+          block:
+            - name: Run version check for {{ tool.name }}
+              shell: "{{ tool.command }}"
+              register: version_output
+              changed_when: false
+              failed_when: false
+              ignore_errors: true
+
+            - name: Extract version for {{ tool.name }}
+              set_fact:
+                version_info: >-
+                  {
+                    "name": "{{ tool.name }}",
+                    "version": "{{ version_output.stdout | default(version_output.stderr) | regex_search(tool.regex, '\\1') | default('Not Installed') }}"
+                  }
+
+            - name: Add to version results
+              set_fact:
+                version_results: "{{ version_results + [version_info] }}"
+          loop: "{{ tools_to_check }}"
+          loop_control:
+            loop_var: tool
+            label: "{{ tool.name }}"
+
+        - name: Display Tool Versions
+          debug:
+            msg: |
+              =============== TOOL VERSIONS ===============
+              {% for tool in version_results %}
+              {{ '%-20s: %s' | format(tool.name, tool.version) }}
+              {% endfor %}
+              ============================================
