@@ -1,46 +1,46 @@
 ---
-- name: Print versions of various tools to a file
+- name: Print versions of tools and write to a file in a nice format
   hosts: localhost
   gather_facts: no
-  tasks:
-    - name: Get CLI tools versions
-      command: "{{ item }}"
-      loop:
+  vars:
+    tool_groups:
+      cli:
         - ansible --version
         - git --version
         - curl --version
-      register: cli_tools_output
-
-    - name: Get Build tools versions
-      command: "{{ item }}"
-      loop:
+      build:
         - python3 --version
         - make --version
         - gcc --version
-      register: build_tools_output
-
+  tasks:
     - name: Create version report file
       copy:
         dest: /tmp/tools_version_report.txt
         content: ""
         force: yes
 
-    - name: Append CLI tools versions to file
-      blockinfile:
-        path: /tmp/tools_version_report.txt
-        marker: ""
-        block: |
-          CLI Tools:
-          {% for item in cli_tools_output.results %}
-          - {{ item.stdout.split('\n')[0] }}
-          {% endfor %}
+    - name: Get tool versions and save to a variable
+      command: "{{ item }}"
+      loop: "{{ tool_groups['cli'] + tool_groups['build'] }}"
+      register: tool_versions
 
-    - name: Append Build tools versions to file
+    - name: Format and append tool versions to file
       blockinfile:
         path: /tmp/tools_version_report.txt
         marker: ""
         block: |
-          Build Tools:
-          {% for item in build_tools_output.results %}
-          - {{ item.stdout.split('\n')[0] }}
+          {{ item.group | capitalize }} Tools:
+          {% for tool in item.tools %}
+          - {{ tool.name }}: {{ tool.version }}
           {% endfor %}
+      loop:
+        - group: cli
+          tools: "{{ tool_versions.results[:tool_groups['cli']|length] | map(attribute='stdout') | list | zip(tool_groups.cli) | map('extract_tool_info') }}"
+        - group: build
+          tools: "{{ tool_versions.results[tool_groups['cli']|length:] | map(attribute='stdout') | list | zip(tool_groups.build) | map('extract_tool_info') }}"
+      vars:
+        ansible_version_output: "{{ ansible_version_output.stdout.split('\n')[0] }}"
+
+    - name: Append CLI Tools versions
+       block_text
+---
