@@ -1,4 +1,4 @@
-- name: Check version for each tool in the group
+- name: Collect tool versions
   shell: "{{ item.command }}"
   register: tool_version_output
   failed_when: false
@@ -7,27 +7,11 @@
   loop_control:
     loop_var: item
   when: item.command is defined
-
-- name: Debug raw output from the command
-  debug:
-    msg: "Raw output for {{ item.name }}: {{ tool_version_output.stdout }}"
-  loop: "{{ group_tools }}"
-  loop_control:
-    loop_var: item
-  when: tool_version_output.stdout is defined
-
-- name: Debug stderr in case of errors
-  debug:
-    msg: "stderr for {{ item.name }}: {{ tool_version_output.stderr }}"
-  loop: "{{ group_tools }}"
-  loop_control:
-    loop_var: item
-  when: tool_version_output.stderr is defined
-
-- name: Set version result in version_results
+  # Collect version results directly into version_results
   set_fact:
-    version_results: "{{ version_results | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.stdout}]}) }}"
-  loop: "{{ group_tools }}"
-  loop_control:
-    loop_var: item
+    version_results: "{{ version_results | default({}) | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.stdout}]}) }}"
   when: tool_version_output.stdout is defined
+
+- name: Display tool versions
+  debug:
+    msg: "Tool versions for {{ group_name }}: {{ version_results[group_name] }}"
