@@ -1,5 +1,5 @@
 ---
-- name: Print versions of various tools
+- name: Print versions of various tools to a file
   hosts: localhost
   gather_facts: no
   tasks:
@@ -19,17 +19,27 @@
         - gcc --version
       register: build_tools_output
 
-    - name: Print CLI tools versions
-      debug:
-        msg: |
+    - name: Create version report file
+      copy:
+        dest: /tmp/tools_version_report.txt
+        content: ""
+        force: yes
+
+    - name: Append CLI tools versions to file
+      blockinfile:
+        path: /tmp/tools_version_report.txt
+        marker: ""
+        block: |
           CLI Tools:
           {% for item in cli_tools_output.results %}
           - {{ item.stdout.split('\n')[0] }}
           {% endfor %}
 
-    - name: Print Build tools versions
-      debug:
-        msg: |
+    - name: Append Build tools versions to file
+      blockinfile:
+        path: /tmp/tools_version_report.txt
+        marker: ""
+        block: |
           Build Tools:
           {% for item in build_tools_output.results %}
           - {{ item.stdout.split('\n')[0] }}
