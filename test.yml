@@ -1,5 +1,5 @@
 - name: Check version for each tool in the group
-  shell: "{{ item.command }} | head -n 1"  # Remove the sed part since it's done in the command
+  shell: "{{ item.command }}"
   register: tool_version_output
   failed_when: false
   changed_when: false
@@ -8,7 +8,7 @@
     loop_var: item
   when: item.command is defined
 
-- name: Debug the raw output of the shell command
+- name: Debug raw output from the command
   debug:
     msg: "Raw output for {{ item.name }}: {{ tool_version_output.stdout }}"
   loop: "{{ group_tools }}"
@@ -16,7 +16,15 @@
     loop_var: item
   when: tool_version_output.stdout is defined
 
-- name: Set version result
+- name: Debug stderr in case of errors
+  debug:
+    msg: "stderr for {{ item.name }}: {{ tool_version_output.stderr }}"
+  loop: "{{ group_tools }}"
+  loop_control:
+    loop_var: item
+  when: tool_version_output.stderr is defined
+
+- name: Set version result in version_results
   set_fact:
     version_results: "{{ version_results | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.stdout}]}) }}"
   loop: "{{ group_tools }}"
