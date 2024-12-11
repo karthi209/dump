@@ -3,120 +3,70 @@
   become: yes
   vars:
     tool_groups:
-      cli_tools:
-        - { name: "Git", command: "git --version", regex: 'git version ([0-9.]+)' }
-        - { name: "Curl", command: "curl --version", regex: 'curl ([0-9.]+)' }
-        - { name: "Wget", command: "wget --version", regex: 'GNU Wget ([0-9.]+)' }
-        - { name: "OpenSSL", command: "openssl version", regex: 'OpenSSL ([0-9.]+[a-z]?)' }
-        - { name: "Tmux", command: "tmux -V", regex: 'tmux ([0-9.]+)' }
-        - { name: "Ansible", command: "ansible --version", regex: 'ansible ([0-9.]+)' }
-        - { name: "AWS CLI", command: "aws --version", regex: 'aws-cli/([0-9.]+)' }
+      configuration_management:
+        - { name: "Ansible CLI", command: "ansible --version", regex: 'ansible ([0-9.]+)' }
+        - { name: "Ansible Playbook", command: "ansible-playbook --version", regex: 'ansible-playbook ([0-9.]+)' }
 
-      languages:
-        - { name: "Java", command: "java -version", regex: 'version "([^"]+)"' }
-        - { name: "Python", command: "python3 --version", regex: 'Python ([0-9.]+)' }
-        - { name: "Node.js", command: "node --version", regex: 'v([0-9.]+)' }
-        - { name: "Go", command: "go version", regex: 'go([0-9.]+)' }
-        - { name: "Ruby", command: "ruby --version", regex: 'ruby ([0-9.]+)' }
-        - { name: "PHP", command: "php --version", regex: 'PHP ([0-9.]+)' }
-        - { name: "Perl", command: "perl --version", regex: 'v([0-9.]+)' }
+      cloud_cli:
+        - { name: "Azure CLI", command: "az version", regex: '"azure-cli": "([^"]+)' }
+        - { name: "IBM Bluemix CLI", command: "ibmcloud --version", regex: 'version ([0-9.]+)' }
 
-      build_and_package_management:
-        - { name: "Maven", command: "mvn --version", regex: 'Apache Maven ([0-9.]+)' }
-        - { name: "Gradle", command: "gradle --version", regex: 'Gradle ([0-9.]+)' }
-        - { name: "npm", command: "npm --version", regex: '([0-9.]+)' }
-        - { name: "Pip", command: "pip3 --version", regex: 'pip ([0-9.]+)' }
-        - { name: "Virtual Env", command: "virtualenv --version", regex: 'virtualenv ([0-9.]+)' }
-
-      containers_and_orchestration:
-        - { name: "Docker", command: "docker --version", regex: 'version ([0-9.]+)' }
-        - { name: "Docker Compose", command: "docker compose version", regex: 'v([0-9.]+)' }
-        - { name: "Kubernetes", command: "kubectl version --client", regex: 'Client Version: v([0-9.]+)' }
+      kubernetes_tools:
         - { name: "Helm", command: "helm version", regex: 'version.BuildInfo{Version:"v([^"]+)"' }
+        - { name: "Kubelogin", command: "kubectl-oidc_login version", regex: 'v([0-9.]+)' }
+        - { name: "Kubectl", command: "kubectl version --client", regex: 'Client Version: v([0-9.]+)' }
 
-      database_tools:
-        - { name: "MySQL Client", command: "mysql --version", regex: 'Distrib ([0-9.]+)' }
-        - { name: "PostgreSQL Client", command: "psql --version", regex: '([0-9.]+)' }
-        - { name: "MongoDB", command: "mongo --version", regex: 'MongoDB shell version v?([0-9.]+)' }
-        - { name: "Redis", command: "redis-cli --version", regex: 'redis-cli ([0-9.]+)' }
+      web_and_frontend:
+        - { name: "Angular CLI", command: "ng version", regex: 'Angular CLI: ([0-9.]+)' }
+        - { name: "Node.js", command: "node --version", regex: 'v([0-9.]+)' }
+        - { name: "Grunt CLI", command: "grunt --version", regex: 'grunt-cli v([0-9.]+)' }
 
-      web_servers:
-        - { name: "Nginx", command: "nginx -v", regex: 'nginx/([0-9.]+)' }
-        - { name: "Apache", command: "httpd -v", regex: 'Apache/([0-9.]+)' }
-
-      infrastructure_as_code:
-        - { name: "Terraform", command: "terraform version", regex: 'v([0-9.]+)' }
-        - { name: "Vagrant", command: "vagrant --version", regex: 'Vagrant ([0-9.]+)' }
-        - { name: "VirtualBox", command: "vboxmanage --version", regex: '([0-9.]+)' }
-
-      testing_tools:
-        - { name: "JUnit", command: "mvn help:evaluate -Dexpression=junit.version -q -DforceStdout", regex: '([0-9.]+)' }
-        - { name: "Selenium", command: "mvn dependency:list | grep selenium-", regex: 'selenium-[^:]+:([0-9.]+)' }
-        - { name: "Cypress", command: "npx cypress --version", regex: 'Cypress package version: ([0-9.]+)' }
-        - { name: "Jest", command: "npx jest --version", regex: '([0-9.]+)' }
+      languages_and_runtimes:
+        - { name: ".NET Core", command: "dotnet --version", regex: '([0-9.]+)' }
+        - { name: "Python3", command: "python3 --version", regex: 'Python ([0-9.]+)' }
+        - { name: "Go", command: "go version", regex: 'go([0-9.]+)' }
 
       development_tools:
-        - { name: "Make", command: "make --version", regex: 'GNU Make ([0-9.]+)' }
-        - { name: "GCC", command: "gcc --version", regex: 'gcc \(.*\) ([0-9.]+)' }
-        - { name: "Bash", command: "bash --version", regex: 'GNU bash, version ([0-9.]+)' }
+        - { name: "Git", command: "git --version", regex: 'git version ([0-9.]+)' }
+        - { name: "Apache Ant", command: "ant -version", regex: 'Ant ([0-9.]+)' }
+        - { name: "Chrome", command: "google-chrome --version", regex: 'Google Chrome ([0-9.]+)' }
+
+      database_tools:
+        - { name: "SQL Server CLI", command: "sqlcmd -?", regex: 'Microsoft SQL Server Command Line Tool version ([0-9.]+)' }
+        - { name: "PostgreSQL Client", command: "psql --version", regex: '([0-9.]+)' }
+        - { name: "Liquibase", command: "liquibase --version", regex: 'Liquibase version ([0-9.]+)' }
+
+      cli_and_utility:
+        - { name: "Curl", command: "curl --version", regex: 'curl ([0-9.]+)' }
+        - { name: "yq", command: "yq --version", regex: 'version v?([0-9.]+)' }
+
+      containers_and_build:
+        - { name: "Docker", command: "docker --version", regex: 'version ([0-9.]+)' }
+        - { name: "Maven", command: "mvn --version", regex: 'Apache Maven ([0-9.]+)' }
 
   tasks:
-    - name: Check Tool Versions
-      block:
-        - name: Initialize version tracking
-          set_fact:
-            version_results: {}
+    - name: Initialize version tracking
+      set_fact:
+        version_results: {}
 
-        - name: Check versions for each tool group
-          include_tasks: check_group_versions.yml
-          loop: "{{ tool_groups | dict2items }}"
-          loop_control:
-            loop_var: group
-
-        - name: Display Tool Versions
-          debug:
-            msg: |
-              ========== TOOL VERSIONS ==========
-              {% for group_name, tools in version_results.items() %}
-              {{ group_name | upper }}:
-              {% for tool in tools %}
-                {{ '%-20s: %s' | format(tool.name, tool.version) }}
-              {% endfor %}
-              {% endfor %}
-              ============================
-
-- name: Check Group Versions
-  hosts: all
-  vars:
-    current_group: "{{ group.key }}"
-    current_tools: "{{ group.value }}"
-  tasks:
-    - name: Run version check for tools in {{ current_group }}
-      block:
-        - name: Check version for {{ tool.name }}
-          shell: "{{ tool.command }}"
-          register: version_output
-          changed_when: false
-          failed_when: false
-          ignore_errors: true
-
-        - name: Extract version for {{ tool.name }}
-          set_fact:
-            tool_version: >-
-              {{ version_output.stdout | default(version_output.stderr) | regex_search(tool.regex, '\\1') | default('Not Installed') }}
-
-        - name: Add tool version to results
-          set_fact:
-            version_results: >-
-              {{ version_results | combine({
-                current_group: (version_results[current_group] | default([])) + [
-                  {
-                    "name": tool.name,
-                    "version": tool_version
-                  }
-                ]
-              }) }}
-      loop: "{{ current_tools }}"
+    - name: Check versions for each tool group
+      include_tasks: check_tool_group.yml
+      vars:
+        group_name: "{{ group_item.key }}"
+        group_tools: "{{ group_item.value }}"
+      loop: "{{ tool_groups | dict2items }}"
       loop_control:
-        loop_var: tool
-        label: "{{ tool.name }}"
+        loop_var: group_item
+        label: "{{ group_item.key }}"
+
+    - name: Display Tool Versions
+      debug:
+        msg: |
+          ========== TOOL VERSIONS ==========
+          {% for group_name, tools in version_results.items() %}
+          {{ group_name | upper }}:
+          {% for tool in tools %}
+            {{ '%-20s: %s' | format(tool.name, tool.version) }}
+          {% endfor %}
+          {% endfor %}
+          ============================
