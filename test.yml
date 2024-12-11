@@ -1,3 +1,7 @@
+- name: Initialize version tracking
+  set_fact:
+    version_results: {}
+
 - name: Collect tool versions
   shell: "{{ item.command }}"
   register: tool_version_output
@@ -7,10 +11,11 @@
   loop_control:
     loop_var: item
   when: item.command is defined
-  # Collect version results directly into version_results
+
+- name: Set version results for each tool
   set_fact:
-    version_results: "{{ version_results | default({}) | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.stdout}]}) }}"
-  when: tool_version_output.stdout is defined
+    version_results: "{{ version_results | default({}) | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.results[loop.index0].stdout}]}) }}"
+  when: tool_version_output.results[loop.index0].stdout is defined
 
 - name: Display tool versions
   debug:
