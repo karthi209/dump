@@ -1,50 +1,114 @@
 ---
-- name: Print versions of tools and write to a file in a nicely formatted structure
-  hosts: localhost
-  gather_facts: no
+- hosts: all
+  become: yes
   vars:
     tool_groups:
-      cli:
-        - ansible --version
-        - git --version
-        - curl --version
-      build:
-        - python3 --version
-        - make --version
-        - gcc --version
+      cli_tools:
+        - { name: "Git", command: "git --version | awk '{print $3}'" }
+        - { name: "Curl", command: "curl --version | awk 'NR==1 {print $2}'" }
+        - { name: "Wget", command: "wget --version | awk 'NR==1 {print $3}'" }
+        - { name: "OpenSSL", command: "openssl version | awk '{print $2}'" }
+        - { name: "Tmux", command: "tmux -V | awk '{print $2}'" }
+        - { name: "Ansible", command: "ansible --version | awk 'NR==1 {print $2}'" }
+        - { name: "AWS CLI", command: "aws --version | awk '{print $1}' | cut -d/ -f2" }
+
+      languages:
+        - { name: "Java", command: "java -version 2>&1 | awk -F '\"' '/version/ {print $2}'" }
+        - { name: "Python", command: "python3 --version | awk '{print $2}'" }
+        - { name: "Node.js", command: "node --version | awk '{print substr($0,2)}'" }
+        - { name: "Go", command: "go version | awk '{print $3}' | cut -dgo -f2" }
+        - { name: "Ruby", command: "ruby --version | awk '{print $2}'" }
+        - { name: "PHP", command: "php --version | awk 'NR==1 {print $2}'" }
+        - { name: "Perl", command: "perl --version | awk '/v[0-9]+/ {print $3}'" }
+
+      build_and_package_management:
+        - { name: "Maven", command: "mvn --version | awk 'NR==1 {print $3}'" }
+        - { name: "Gradle", command: "gradle --version | awk '/Gradle/ {print $2}'" }
+        - { name: "npm", command: "npm --version" }
+        - { name: "Pip", command: "pip3 --version | awk '{print $2}'" }
+        - { name: "Virtual Env", command: "virtualenv --version | awk '{print $2}'" }
+
+      containers_and_orchestration:
+        - { name: "Docker", command: "docker --version | awk '{print $3}' | sed 's/,//'" }
+        - { name: "Docker Compose", command: "docker compose version | awk 'NR==1 {print $3}' | sed 's/v//'" }
+        - { name: "Kubernetes", command: "kubectl version --client --short | awk '{print $3}' | sed 's/v//'" }
+        - { name: "Helm", command: "helm version | awk -F '\"' '{print $2}'" }
+
+      database_tools:
+        - { name: "MySQL Client", command: "mysql --version | awk '{print $5}' | sed 's/,//'" }
+        - { name: "PostgreSQL Client", command: "psql --version | awk '{print $3}'" }
+        - { name: "MongoDB", command: "mongo --version | awk '/MongoDB/ {print $4}'" }
+        - { name: "Redis", command: "redis-cli --version | awk '{print $2}'" }
+
+      web_servers:
+        - { name: "Nginx", command: "nginx -v 2>&1 | awk -F/ '{print $2}'" }
+        - { name: "Apache", command: "httpd -v | awk '/Apache/ {print $3}' | cut -d/ -f2" }
+
+      infrastructure_as_code:
+        - { name: "Terraform", command: "terraform version | awk 'NR==1 {print $2}' | sed 's/v//'" }
+        - { name: "Vagrant", command: "vagrant --version | awk '{print $2}'" }
+        - { name: "VirtualBox", command: "vboxmanage --version" }
+
+      testing_tools:
+        - { name: "JUnit", command: "mvn help:evaluate -Dexpression=junit.version -q -DforceStdout" }
+        - { name: "Selenium", command: "mvn dependency:list | grep selenium- | awk -F: '{print $4}'" }
+        - { name: "Cypress", command: "npx cypress --version | awk '/package/ {print $4}'" }
+        - { name: "Jest", command: "npx jest --version" }
+
+      development_tools:
+        - { name: "Make", command: "make --version | awk 'NR==1 {print $3}'" }
+        - { name: "GCC", command: "gcc --version | awk 'NR==1 {print $3}'" }
+        - { name: "Bash", command: "bash --version | awk 'NR==1 {print $4}'" }
+
   tasks:
-    - name: Create version report file
-      copy:
-        dest: /tmp/tools_version_report.txt
-        content: ""
-        force: yes
-
-    - name: Get tool versions
-      command: "{{ item }}"
-      loop: "{{ tool_groups.cli + tool_groups.build }}"
-      register: tool_versions
-
-    - name: Organize CLI and Build tool versions
+    - name: Initialize version tracking
       set_fact:
-        cli_tool_versions: "{{ tool_versions.results[:tool_groups.cli | length] }}"
-        build_tool_versions: "{{ tool_versions.results[tool_groups.cli | length:] }}"
+        version_results: {}
 
-    - name: Format and append CLI tools versions to file
-      blockinfile:
-        path: /tmp/tools_version_report.txt
-        marker: ""
-        block: |
-          CLI Tools:
-          {% for tool in cli_tool_versions %}
-          - {{ tool.item.split()[0] }}: {{ tool.stdout.split('\n')[0] }}
-          {% endfor %}
+    - name: Check versions for each tool group
+      block:
+        - name: Check version for tools in {{ group.key }}
+          block:
+            - name: Run version check for {{ tool.name }}
+              shell: "{{ tool.command }}"
+              register: version_output
+              changed_when: false
+              failed_when: false
+              ignore_errors: true
 
-    - name: Format and append Build tools versions to file
-      blockinfile:
-        path: /tmp/tools_version_report.txt
-        marker: ""
-        block: |
-          Build Tools:
-          {% for tool in build_tool_versions %}
-          - {{ tool.item.split()[0] }}: {{ tool.stdout.split('\n')[0] }}
+            - name: Extract version for {{ tool.name }}
+              set_fact:
+                tool_version: "{{ version_output.stdout | default(version_output.stderr) | trim }}"
+
+            - name: Add tool version to results
+              set_fact:
+                version_results: >-
+                  {{ version_results | combine({
+                    group.key: (version_results[group.key] | default([])) + [
+                      {
+                        "name": tool.name,
+                        "version": tool_version
+                      }
+                    ]
+                  }) }}
+          loop: "{{ group.value }}"
+          loop_control:
+            loop_var: tool
+        - name: Display versions for {{ group.key }}
+          debug:
+            msg: "{{ group.key | upper }}: {{ version_results[group.key] }}"
+      loop: "{{ tool_groups | dict2items }}"
+      loop_control:
+        loop_var: group
+
+    - name: Display Tool Versions Summary
+      debug:
+        msg: |
+          ========== TOOL VERSIONS ==========
+          {% for group_name, tools in version_results.items() %}
+          {{ group_name | upper }}:
+          {% for tool in tools %}
+            {{ '%-20s: %s' | format(tool.name, tool.version) }}
           {% endfor %}
+          {% endfor %}
+          ============================
