@@ -1,72 +1,36 @@
 ---
-- hosts: all
-  become: yes
-  vars:
-    tool_groups:
-      configuration_management:
-        - { name: "Ansible CLI", command: "ansible --version | regex_search('ansible\\s\\[core\\s(\\d+\\.\\d+\\.\\d+)\\]')" }
-        - { name: "Ansible Playbook", command: "ansible-playbook --version", regex: 'ansible-playbook ([0-9.]+)' }
-
-      cloud_cli:
-        - { name: "Azure CLI", command: "az version", regex: '"azure-cli": "([^"]+)' }
-        - { name: "IBM Bluemix CLI", command: "ibmcloud --version", regex: 'version ([0-9.]+)' }
-
-      kubernetes_tools:
-        - { name: "Helm", command: "helm version", regex: 'version.BuildInfo{Version:"v([^"]+)"' }
-        - { name: "Kubelogin", command: "kubectl-oidc_login version", regex: 'v([0-9.]+)' }
-        - { name: "Kubectl", command: "kubectl version --client", regex: 'Client Version: v([0-9.]+)' }
-
-      web_and_frontend:
-        - { name: "Angular CLI", command: "ng version", regex: 'Angular CLI: ([0-9.]+)' }
-        - { name: "Node.js", command: "node --version", regex: 'v([0-9.]+)' }
-        - { name: "Grunt CLI", command: "grunt --version", regex: 'grunt-cli v([0-9.]+)' }
-
-      languages_and_runtimes:
-        - { name: ".NET Core", command: "dotnet --version", regex: '([0-9.]+)' }
-        - { name: "Python3", command: "python3 --version", regex: 'Python ([0-9.]+)' }
-        - { name: "Go", command: "go version", regex: 'go([0-9.]+)' }
-
-      development_tools:
-        - { name: "Git", command: "git --version", regex: 'git version ([0-9.]+)' }
-        - { name: "Apache Ant", command: "ant -version", regex: 'Ant ([0-9.]+)' }
-        - { name: "Chrome", command: "google-chrome --version", regex: 'Google Chrome ([0-9.]+)' }
-
-      database_tools:
-        - { name: "SQL Server CLI", command: "sqlcmd -?", regex: 'Microsoft SQL Server Command Line Tool version ([0-9.]+)' }
-        - { name: "PostgreSQL Client", command: "psql --version", regex: '([0-9.]+)' }
-        - { name: "Liquibase", command: "liquibase --version", regex: 'Liquibase version ([0-9.]+)' }
-
-      cli_and_utility:
-        - { name: "Curl", command: "curl --version", regex: 'curl ([0-9.]+)' }
-        - { name: "yq", command: "yq --version", regex: 'version v?([0-9.]+)' }
-
-      containers_and_build:
-        - { name: "Docker", command: "docker --version", regex: 'version ([0-9.]+)' }
-        - { name: "Maven", command: "mvn --version", regex: 'Apache Maven ([0-9.]+)' }
-
+- name: Print versions of various tools
+  hosts: localhost
+  gather_facts: no
   tasks:
-    - name: Initialize version tracking
-      set_fact:
-        version_results: {}
+    - name: Get CLI tools versions
+      command: "{{ item }}"
+      loop:
+        - ansible --version
+        - git --version
+        - curl --version
+      register: cli_tools_output
 
-    - name: Check versions for each tool group
-      include_tasks: check_tool_group.yml
-      vars:
-        group_name: "{{ group_item.key }}"
-        group_tools: "{{ group_item.value }}"
-      loop: "{{ tool_groups | dict2items }}"
-      loop_control:
-        loop_var: group_item
-        label: "{{ group_item.key }}"
+    - name: Get Build tools versions
+      command: "{{ item }}"
+      loop:
+        - python3 --version
+        - make --version
+        - gcc --version
+      register: build_tools_output
 
-    - name: Display Tool Versions
+    - name: Print CLI tools versions
       debug:
         msg: |
-          ========== TOOL VERSIONS ==========
-          {% for group_name, tools in version_results.items() %}
-          {{ group_name | upper }}:
-          {% for tool in tools %}
-            {{ '%-20s: %s' | format(tool.name, tool.version) }}
+          CLI Tools:
+          {% for item in cli_tools_output.results %}
+          - {{ item.stdout.split('\n')[0] }}
           {% endfor %}
+
+    - name: Print Build tools versions
+      debug:
+        msg: |
+          Build Tools:
+          {% for item in build_tools_output.results %}
+          - {{ item.stdout.split('\n')[0] }}
           {% endfor %}
-          ============================
