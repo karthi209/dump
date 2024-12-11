@@ -1,6 +1,10 @@
-- name: Check version for tools in {{ group_name }}
+- name: Prepare version tracking for {{ group_name }}
+  set_fact:
+    group_version_results: []
+
+- name: Check version for each tool in {{ group_name }}
   ansible.builtin.shell: "{{ item.command }}"
-  register: version_output
+  register: tool_version_output
   changed_when: false
   failed_when: false
   ignore_errors: true
@@ -8,23 +12,28 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Process tool versions for {{ group_name }}
+- name: Process individual tool versions
   ansible.builtin.set_fact:
-    version_results: >-
-      {{ version_results | combine({
-        group_name: (version_results[group_name] | default([])) + [
-          {
-            "name": item.item.name,
-            "version": (
-              item.stdout | default(item.stderr) | 
+    group_version_results: >-
+      {{ group_version_results + [
+        {
+          'name': item.item.name,
+          'version': (
+            (
+              item.stdout | default(item.stderr, true) | 
               regex_search(item.item.regex, '\\1') | 
-              default('Not Installed') | 
-              regex_replace('^None$', 'Not Installed')
-            )
-          }
-        ]
-      }) }}
-  loop: "{{ version_output.results }}"
+              first | 
+              default('Not Installed')
+            ) 
+            if item.rc is defined and item.rc == 0 
+            else 'Not Installed'
+          )
+        }
+      ] }}
+  loop: "{{ tool_version_output.results }}"
   loop_control:
     label: "{{ item.item.name }}"
-  when: item.rc is defined and item.rc == 0
+
+- name: Update version results for {{ group_name }}
+  set_fact:
+    version_results: "{{ version_results | combine({group_name: group_version_results}) }}"
