@@ -1,0 +1,24 @@
+- name: Check version for tools in {{ group_name }}
+  ansible.builtin.shell: "{{ item.command }}"
+  register: version_output
+  changed_when: false
+  failed_when: false
+  ignore_errors: true
+  loop: "{{ group_tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Process tool versions for {{ group_name }}
+  ansible.builtin.set_fact:
+    version_results: >-
+      {{ version_results | combine({
+        group_name: (version_results[group_name] | default([])) + [
+          {
+            "name": item.item.name,
+            "version": item.stdout | default(item.stderr) | regex_search(item.item.regex, '\\1') | default('Not Installed')
+          }
+        ]
+      }) }}
+  loop: "{{ version_output.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
