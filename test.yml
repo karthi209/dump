@@ -1,39 +1,18 @@
-- name: Prepare version tracking for {{ group_name }}
-  set_fact:
-    group_version_results: []
-
-- name: Check version for each tool in {{ group_name }}
-  ansible.builtin.shell: "{{ item.command }}"
+---
+- name: Check version for each tool in the group
+  shell: "{{ item.command }}"
   register: tool_version_output
-  changed_when: false
   failed_when: false
-  ignore_errors: true
+  changed_when: false
   loop: "{{ group_tools }}"
   loop_control:
-    label: "{{ item.name }}"
+    loop_var: item
+  when: item.command is defined
 
-- name: Process individual tool versions
-  ansible.builtin.set_fact:
-    group_version_results: >-
-      {{ group_version_results + [
-        {
-          'name': item.item.name,
-          'version': (
-            (
-              item.stdout | default(item.stderr, true) | 
-              regex_search(item.item.regex, '\\1') | 
-              first | 
-              default('Not Installed')
-            ) 
-            if item.rc is defined and item.rc == 0 
-            else 'Not Installed'
-          )
-        }
-      ] }}
-  loop: "{{ tool_version_output.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-
-- name: Update version results for {{ group_name }}
+- name: Extract version using regex
   set_fact:
-    version_results: "{{ version_results | combine({group_name: group_version_results}) }}"
+    version_results: "{{ version_results | combine({group_name: (version_results[group_name] | default([])) + [{'name': item.name, 'version': (tool_version_output.stdout | regex_search(item.regex))}]}) }}"
+  loop: "{{ group_tools }}"
+  loop_control:
+    loop_var: item
+  when: tool_version_output.stdout is defined
