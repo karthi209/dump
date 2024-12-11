@@ -1,5 +1,5 @@
 ---
-- name: Print versions of tools and write to a file in a nice format
+- name: Print versions of tools and write to a file in a nicely formatted structure
   hosts: localhost
   gather_facts: no
   vars:
@@ -19,9 +19,9 @@
         content: ""
         force: yes
 
-    - name: Get tool versions and save to a variable
+    - name: Get tool versions and store output
       command: "{{ item }}"
-      loop: "{{ tool_groups['cli'] + tool_groups['build'] }}"
+      loop: "{{ tool_groups.cli + tool_groups.build }}"
       register: tool_versions
 
     - name: Format and append tool versions to file
@@ -35,12 +35,13 @@
           {% endfor %}
       loop:
         - group: cli
-          tools: "{{ tool_versions.results[:tool_groups['cli']|length] | map(attribute='stdout') | list | zip(tool_groups.cli) | map('extract_tool_info') }}"
+          tools: "{{ tool_versions.results[:tool_groups.cli | length] | zip(tool_groups.cli) | map('extract_tool_info') }}"
         - group: build
-          tools: "{{ tool_versions.results[tool_groups['cli']|length:] | map(attribute='stdout') | list | zip(tool_groups.build) | map('extract_tool_info') }}"
-      vars:
-        ansible_version_output: "{{ ansible_version_output.stdout.split('\n')[0] }}"
+          tools: "{{ tool_versions.results[tool_groups.cli | length:] | zip(tool_groups.build) | map('extract_tool_info') }}"
 
-    - name: Append CLI Tools versions
-       block_text
----
+  filters:
+    extract_tool_info: >
+      def extract_tool_info(tool_version_pair):
+        tool_name_command = tool_version_pair[1].split()[0]
+        tool_version = tool_version_pair[0].split("\n")[0]
+        return {'name': tool_name_command, 'version': tool_version}
