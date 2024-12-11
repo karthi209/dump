@@ -15,10 +15,16 @@
         group_name: (version_results[group_name] | default([])) + [
           {
             "name": item.item.name,
-            "version": item.stdout | default(item.stderr) | regex_search(item.item.regex, '\\1') | default('Not Installed')
+            "version": (
+              item.stdout | default(item.stderr) | 
+              regex_search(item.item.regex, '\\1') | 
+              default('Not Installed') | 
+              regex_replace('^None$', 'Not Installed')
+            )
           }
         ]
       }) }}
   loop: "{{ version_output.results }}"
   loop_control:
     label: "{{ item.item.name }}"
+  when: item.rc is defined and item.rc == 0
