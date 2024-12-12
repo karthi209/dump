@@ -18,20 +18,21 @@
       loop_control:
         label: "{{ item.1.name }}"
 
+    - name: Initialize version_results variable
+      set_fact:
+        version_results: {}
+
+    - name: Populate version_results with tool versions
+      set_fact:
+        version_results: "{{ version_results | combine({ item.item.1.name: [{'name': item.item.1.name, 'version': item.stdout }] }) }}"
+      with_items: "{{ command_output.results }}"
+      loop_control:
+        label: "{{ item.item.1.name }}"
+
     - name: Create formatted tool version summary file
       copy:
         content: |
           ========== TOOL VERSIONS ==========
-          {% set version_results = {} %}
-          {% for result in command_output.results %}
-            {% set group_name = result.item.1.name %}
-            {% set tool_name = group_name %}
-            {% set tool_version = result.stdout %}
-            {% if group_name not in version_results %}
-              {% set version_results = version_results | merge({group_name: []}) %}
-            {% endif %}
-            {% set version_results = version_results | merge({group_name: version_results[group_name] + [{ 'name': tool_name, 'version': tool_version }]}) %}
-          {% endfor %}
           {% for group_name, tools in version_results.items() %}
           {{ group_name | upper }}:
           {% for tool in tools %}
@@ -40,22 +41,12 @@
           {% endfor %}
           ============================
         dest: "./tool_versions.txt"
-      when: command_output is defined
+      when: version_results is defined
 
     - name: Display tool versions summary
       debug:
         msg: |
           ========== TOOL VERSIONS ==========
-          {% set version_results = {} %}
-          {% for result in command_output.results %}
-            {% set group_name = result.item.1.name %}
-            {% set tool_name = group_name %}
-            {% set tool_version = result.stdout %}
-            {% if group_name not in version_results %}
-              {% set version_results = version_results | merge({group_name: []}) %}
-            {% endif %}
-            {% set version_results = version_results | merge({group_name: version_results[group_name] + [{ 'name': tool_name, 'version': tool_version }]}) %}
-          {% endfor %}
           {% for group_name, tools in version_results.items() %}
           {{ group_name | upper }}:
           {% for tool in tools %}
