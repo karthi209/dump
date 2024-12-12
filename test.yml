@@ -1,60 +1,6 @@
-- name: Execute commands and gather tool versions
-  hosts: localhost
-  gather_facts: false
-  vars:
-    tool_groups:
-      cli:
-        - {name: "azcli", shell: "az --version"}
-      build:
-        - {name: "ant", shell: "ant --version"}
-        - {name: "maven", shell: "mvn -version"}
-  tasks:
-    - name: Run shell commands to get tool versions
-      shell: "{{ item.shell }}"
-      register: command_output
-      with_subelements:
-        - "{{ tool_groups | dict2items }}"
-        - value
-      loop_control:
-        label: "{{ item.1.name }}"
-
-    - name: Initialize version_results variable
+    - name: Add pip module versions to version_results
       set_fact:
-        version_results: {}
-
-    - name: Populate version_results with tool versions
-      set_fact:
-        version_results: "{{ version_results | combine({ item.item.0.key: version_results[item.item.0.key] | default([]) + [{'name': item.item.1.name, 'version': item.stdout if item.stdout != '' else item.stderr }] }) }}"
-      with_items: "{{ command_output.results }}"
+        version_results: "{{ version_results | combine({ 'pip_modules': version_results['pip_modules'] | default([]) + [{'name': item.item, 'version': (item.stdout | regex_search('\\d+\\.\\d+\\.\\d+', '\\0')) }] }) }}"
+      with_items: "{{ pip_output.results }}"
       loop_control:
-        label: "{{ item.item.1.name }}"
-
-    - name: Debug version_results to check grouping and tool data
-      debug:
-        msg: "{{ version_results }}"
-
-    - name: Create formatted tool version summary file
-      copy:
-        content: |
-          ========== TOOL VERSIONS ==========
-          {% for group_name, tools in version_results.items() %}
-          {{ group_name | upper }}:
-          {% for tool in tools %}
-            {{ '%-20s: %s' | format(tool.name, tool.version) }}
-          {% endfor %}
-          {% endfor %}
-          ============================
-        dest: "./tool_versions.txt"
-      when: version_results is defined
-
-    - name: Display tool versions summary
-      debug:
-        msg: |
-          ========== TOOL VERSIONS ==========
-          {% for group_name, tools in version_results.items() %}
-          {{ group_name | upper }}:
-          {% for tool in tools %}
-            {{ '%-20s: %s' | format(tool.name, tool.version) }}
-          {% endfor %}
-          {% endfor %}
-          ============================
+        label: "{{ item.item }}"
