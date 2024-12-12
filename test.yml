@@ -1,69 +1,55 @@
----
-- hosts: all
-  become: yes
-  gather_facts: no
+- name: Execute commands and gather tool versions
+  hosts: localhost
+  gather_facts: false
   vars:
     tool_groups:
-      CLI:
-        - name: "Ansible CLI"
-          command: "ansible --version | sed -n 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\\1/p'"
-        - name: "Git"
-          command: "git --version | sed 's/git version //'"
-        - name: "Docker"
-          command: "docker --version | sed 's/.* version //; s/,//'"  # Adjusted to handle Docker output
-
-      Languages:
-        - name: "Node.js"
-          command: "node --version | sed 's/v//'"
-        - name: "Python3"
-          command: "python3 --version | sed 's/Python //'"
-        - name: "Go"
-          command: "go version | sed -n 's/go\([0-9]\+\.[0-9]\+\).*/\\1/p'"
-
-      Build_Tools:
-        - name: "Maven"
-          command: "mvn --version | sed -n 's/Apache Maven \([0-9]\+\.[0-9]\+\).*/\\1/p'"
-        - name: "Gradle"
-          command: "gradle --version | sed -n 's/Gradle \([0-9]\+\.[0-9]\+\).*/\\1/p'"
-
+      cli:
+        - {name: "azcli", shell: "az --version"}
+      build:
+        - {name: "ant", shell: "ant --version"}
+        - {name: "maven", shell: "mvn -version"}
   tasks:
-    # Initialize a dictionary to store the results
-    - name: Initialize version tracking
-      set_fact:
-        version_results: {}
-
-    # Collect tool versions for each group
-    - name: Collect tool versions
-      shell: "{{ item.command }}"
-      register: tool_version_output
-      failed_when: false
-      changed_when: false
-      loop: "{{ item }}"
+    - name: Run shell commands to get tool versions
+      shell: "{{ item.shell }}"
+      register: command_output
+      with_subelements:
+        - "{{ tool_groups | dict2items }}"
+        - value
       loop_control:
-        loop_var: item
+        label: "{{ item.1.name }}"
 
-    # Set the collected versions into the results dictionary
-    - name: Set version result for each tool
-      set_fact:
-        version_results:
-          "{{ version_results | default({}) | combine({group_name : (version_results[group_name] | default([])) + [{'name': item.name, 'version': tool_version_output.results[loop.index].stdout}]}) }}"
-      when:
-        - tool_version_output.results[loop.index].stdout is defined
-      loop: "{{ item }}"
-      loop_control:
-        loop_var: item
-      vars:
-        group_name: "{{ group_item.key }}"
-
-    # Display the collected tool versions in a formatted way
-    - name: Display Tool Versions
-      debug:
-        msg: |
+    - name: Create formatted tool version summary file
+      copy:
+        content: |
           ========== TOOL VERSIONS ==========
           {% for group_name, tools in version_results.items() %}
           {{ group_name | upper }}:
           {% for tool in tools %}
-            {{ '%-20s : %s' | format(tool.name, tool.version) }}
+            {{ '%-20s: %s' | format(tool.name, tool.version) }}
+          {% endfor %}
+          {% endfor %}
+          ============================
+        dest: "./tool_versions.txt"
+      when: command_output is defined
+
+    - name: Display Tool Versions Summary
+      debug:
+        msg: |
+          ========== TOOL VERSIONS ==========
+          {% set version_results = {} %}
+          {% for item in command_output.results %}
+            {% set group_name = item.item.1.name %}
+            {% set tool_name = group_name %}
+            {% set tool_version = item.stdout %}
+            {% if group_name not in version_results %}
+              {% set version_results = version_results | merge({group_name: []}) %}
+            {% endif %}
+            {% set version_results = version_results | merge({group_name: version_results[group_name] + [{ 'name': tool_name, 'version': tool_version }]}) %}
+          {% endfor %}
+          {% for group_name, tools in version_results.items() %}
+          {{ group_name | upper }}:
+          {% for tool in tools %}
+            {{ '%-20s: %s' | format(tool.name, tool.version) }}
           {% endfor %}
           {% endfor %}
           ============================
