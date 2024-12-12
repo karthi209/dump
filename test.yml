@@ -24,7 +24,7 @@
 
     - name: Populate version_results with tool versions
       set_fact:
-        version_results: "{{ version_results | combine({ item.item.1.name: [{'name': item.item.1.name, 'version': item.stdout }] }) }}"
+        version_results: "{{ version_results | combine({ item.item.0.key: [{'name': item.item.1.name, 'version': item.stdout }] }) }}"
       with_items: "{{ command_output.results }}"
       loop_control:
         label: "{{ item.item.1.name }}"
