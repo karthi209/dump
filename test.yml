@@ -24,14 +24,14 @@
 
     - name: Populate version_results with tool versions
       set_fact:
-        version_results: "{{ version_results | combine({ item.item.0.key: [{'name': item.item.1.name, 'version': item.stdout if item.stdout != '' else item.stderr }] }) }}"
+        version_results: "{{ version_results | combine({ item.item.0.key: version_results[item.item.0.key] | default([]) + [{'name': item.item.1.name, 'version': item.stdout if item.stdout != '' else item.stderr }] }) }}"
       with_items: "{{ command_output.results }}"
       loop_control:
         label: "{{ item.item.1.name }}"
 
-    - name: Debug command_output to check all tool results
+    - name: Debug version_results to check grouping and tool data
       debug:
-        msg: "{{ command_output.results }}"
+        msg: "{{ version_results }}"
 
     - name: Create formatted tool version summary file
       copy:
